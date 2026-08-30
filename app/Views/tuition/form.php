@@ -1,0 +1,18 @@
+<?php use App\Core\Csrf;$v=fn($key)=>$input[$key]??''; ?>
+<div class="page-heading"><div><p class="eyebrow">Finance</p><h1>Create grade-level assessment</h1><p>Define the school fees for all students enrolled in a grade level.</p></div><a class="button" href="<?=e(url('/tuition'))?>">Cancel</a></div>
+<?php if($errors):?><div class="alert danger"><?=e(implode(' ',$errors))?></div><?php endif;?>
+<form method="post" action="<?=e(url('/tuition'))?>" class="stack-form tuition-assessment-form"><section class="card form-section"><?=Csrf::field()?>
+<h2>Grade level and period</h2><div class="grid two">
+<label>Grade level<select required name="grade_level_id"><option value="">Select grade level</option><?php foreach($grades as $g):?><option value="<?=$g['id']?>" <?=(string)$v('grade_level_id')===(string)$g['id']?'selected':''?>><?=e($g['name'])?></option><?php endforeach;?></select></label>
+<label>School year<select required name="school_year_id"><option value="">Select school year</option><?php foreach($schoolYears as $y):?><option value="<?=$y['id']?>" <?=(string)$v('school_year_id')===(string)$y['id']?'selected':''?>><?=e($y['name'])?></option><?php endforeach;?></select></label>
+<label>Term (optional)<select name="term_id"><option value="">No specific term</option><?php foreach($terms as $t):?><option value="<?=$t['id']?>" data-year="<?=$t['school_year_id']?>" <?=(string)$v('term_id')===(string)$t['id']?'selected':''?>><?=e($t['school_year'].' — '.$t['name'])?></option><?php endforeach;?></select><small>Terms are created in <a href="<?=e(url('/admin/academics#terms'))?>">Academics</a>.</small></label>
+<label>Assessment label (optional)<input name="description" value="<?=e((string)$v('description'))?>" placeholder="Grade 7 monthly fees, First semester"></label>
+</div></section>
+<section class="card form-section fee-entry-card"><div class="table-heading"><div><h2>Fee breakdown</h2><small>Leave a category at zero when it does not apply.</small></div><div class="fee-total"><span>Total assessment</span><strong id="fee-total"><?=e($currency)?> 0.00</strong></div></div>
+<div class="fee-entry-grid"><?php foreach(['tuition_fee_amount'=>'Tuition','entrance_fee_amount'=>'Entrance fee','paces_fee_amount'=>'PACES','closing_fee_amount'=>'Closing fee','shuttle_fee_amount'=>'Shuttle'] as $key=>$label):?><label><?=$label?> (<?=e($currency)?>)<input class="fee-component" type="number" min="0" step="0.01" name="<?=$key?>" value="<?=e((string)($v($key)===''?'0':$v($key)))?>"></label><?php endforeach;?></div>
+<label class="due-date-field">Due date<input type="date" name="due_date" value="<?=e((string)$v('due_date'))?>"></label></section>
+<div class="sticky-actions"><button class="button primary">Create grade assessment</button></div></form>
+<script>
+const schoolYear=document.querySelector('[name="school_year_id"]'),term=document.querySelector('[name="term_id"]'),termOptions=[...term.options].map(option=>option.cloneNode(true));schoolYear.addEventListener('change',()=>{const selected=term.value;term.replaceChildren(...termOptions.filter(option=>!option.value||option.dataset.year===schoolYear.value).map(option=>option.cloneNode(true)));if([...term.options].some(option=>option.value===selected))term.value=selected;});
+const currency=<?=json_encode($currency)?>,components=[...document.querySelectorAll('.fee-component')],total=document.getElementById('fee-total');function updateFeeTotal(){const sum=components.reduce((value,input)=>value+(Number.parseFloat(input.value)||0),0);total.textContent=currency+' '+sum.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}components.forEach(input=>input.addEventListener('input',updateFeeTotal));updateFeeTotal();
+</script>

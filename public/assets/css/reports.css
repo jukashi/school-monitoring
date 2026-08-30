@@ -1,0 +1,1 @@
+.report-filter{display:grid;grid-template-columns:minmax(240px,1fr) 180px 180px auto;gap:.75rem;align-items:end;margin-bottom:1rem}@media(max-width:800px){.report-filter{grid-template-columns:1fr}}
