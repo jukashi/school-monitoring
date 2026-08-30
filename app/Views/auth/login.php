@@ -1,7 +1,7 @@
 <?php use App\Core\Csrf; ?>
 <section class="card auth-card">
     <div class="mark">SM</div>
-    <p class="eyebrow">School Monitoring System</p>
+    <p class="eyebrow">SCHOOL MANAGEMENT SYSTEM</p>
     <h1>Welcome back</h1>
     <p>Sign in with your username or email.</p>
     <?php if ($success = flash('success')): ?><div class="alert success"><?= e($success) ?></div><?php endif; ?>
