@@ -20,10 +20,10 @@ $logoPositionY=max(0,min(100,(int)($settings['school_logo_position_y']??50)));
             <?=Csrf::field()?>
             <div>
                 <div class="logo-position-heading"><strong>Adjust sidebar position</strong><span data-position-value><?=$logoPositionY?>%</span></div>
-                <p class="logo-position-help"><?=$hasSchoolLogo?'Drag the logo vertically or use the arrow keys.':'Upload a logo to enable positioning.'?></p>
+                <p class="logo-position-help"><?=$hasSchoolLogo?'Drag the image vertically or use the arrow keys. The sidebar updates live; save to keep the position.':'Upload a logo to enable positioning.'?></p>
             </div>
-            <div class="logo-position-preview<?=$hasSchoolLogo?'':' is-disabled'?>" data-logo-position-preview role="slider" aria-label="School logo vertical position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?=$logoPositionY?>" aria-disabled="<?=$hasSchoolLogo?'false':'true'?>" <?=$hasSchoolLogo?'tabindex="0"':''?>>
-                <?php if($hasSchoolLogo):?><img data-logo-position-image src="<?=e(url('/'.$settings['school_logo']))?>" alt="Current school logo" style="object-position:center <?=$logoPositionY?>%"><span class="drag-hint" aria-hidden="true">↕ Drag</span><?php else:?><span class="logo-empty-mark">SM</span><?php endif;?>
+            <div class="logo-position-preview<?=$hasSchoolLogo?'':' is-disabled'?>" data-logo-position-preview role="slider" aria-label="School logo vertical position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?=$logoPositionY?>" aria-disabled="<?=$hasSchoolLogo?'false':'true'?>" <?=$hasSchoolLogo?'tabindex="0"':''?> <?php if($hasSchoolLogo):?>style="background-image:url('<?=e(url('/'.$settings['school_logo']))?>');background-position:center <?=$logoPositionY?>%"<?php endif;?>>
+                <?php if($hasSchoolLogo):?><img data-logo-position-image src="<?=e(url('/'.$settings['school_logo']))?>" alt="Current school logo"><span class="drag-hint" aria-hidden="true">↕ Drag</span><?php else:?><span class="logo-empty-mark">SM</span><?php endif;?>
             </div>
             <input type="hidden" name="position_y" value="<?=$logoPositionY?>" data-position-input>
             <button class="button" <?=$hasSchoolLogo?'':'disabled'?>>Save logo position</button>
@@ -41,16 +41,17 @@ $logoPositionY=max(0,min(100,(int)($settings['school_logo_position_y']??50)));
     if(!form)return;
     const preview=form.querySelector('[data-logo-position-preview]');
     const image=form.querySelector('[data-logo-position-image]');
+    const sidebarFrame=document.querySelector('[data-sidebar-logo-frame]');
     const input=form.querySelector('[data-position-input]');
     const output=form.querySelector('[data-position-value]');
     if(!preview||!image||!input||!output)return;
     const clamp=value=>Math.max(0,Math.min(100,Math.round(value)));
-    const update=value=>{const next=clamp(value);input.value=String(next);output.textContent=next+'%';preview.setAttribute('aria-valuenow',String(next));image.style.objectPosition='center '+next+'%';};
+    const update=value=>{const next=clamp(value);const position='center '+next+'%';input.value=String(next);output.textContent=next+'%';preview.setAttribute('aria-valuenow',String(next));preview.style.backgroundPosition=position;if(sidebarFrame)sidebarFrame.style.backgroundPosition=position;};
     let startY=0,startValue=Number(input.value),dragging=false;
-    preview.addEventListener('pointerdown',event=>{dragging=true;startY=event.clientY;startValue=Number(input.value);preview.setPointerCapture(event.pointerId);preview.classList.add('is-dragging');});
-    preview.addEventListener('pointermove',event=>{if(!dragging)return;update(startValue+((event.clientY-startY)/preview.clientHeight)*100);});
+    preview.addEventListener('pointerdown',event=>{event.preventDefault();dragging=true;startY=event.clientY;startValue=Number(input.value);preview.setPointerCapture(event.pointerId);preview.classList.add('is-dragging');});
+    preview.addEventListener('pointermove',event=>{if(!dragging)return;event.preventDefault();update(startValue-((event.clientY-startY)/preview.clientHeight)*100);});
     const stop=()=>{dragging=false;preview.classList.remove('is-dragging');};
-    preview.addEventListener('pointerup',stop);preview.addEventListener('pointercancel',stop);
+    preview.addEventListener('pointerup',stop);preview.addEventListener('pointercancel',stop);preview.addEventListener('lostpointercapture',stop);
     preview.addEventListener('keydown',event=>{if(event.key!=='ArrowUp'&&event.key!=='ArrowDown'&&event.key!=='Home'&&event.key!=='End')return;event.preventDefault();if(event.key==='Home')update(0);else if(event.key==='End')update(100);else update(Number(input.value)+(event.key==='ArrowDown'?2:-2));});
 })();
 </script>
