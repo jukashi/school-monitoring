@@ -62,6 +62,12 @@ final class AcademicController
                 case 'assignment':
                     $teacher=(int)($_POST['teacher_id']??0); $section=(int)($_POST['section_id']??0); $subject=(int)($_POST['subject_id']??0); $term=(int)($_POST['term_id']??0);
                     if (!$teacher||!$section||!$subject) throw new \InvalidArgumentException('Teacher, section, and subject are required.');
+                    $context=$pdo->prepare('SELECT s.school_year_id,t.school_year_id term_school_year_id FROM sections s LEFT JOIN terms t ON t.id=? WHERE s.id=?');
+                    $context->execute([$term?:null,$section]);
+                    $academicContext=$context->fetch();
+                    if(!$academicContext)throw new \InvalidArgumentException('The selected section is invalid.');
+                    if($term&&$academicContext['term_school_year_id']===null)throw new \InvalidArgumentException('The selected term is invalid.');
+                    if($term&&(int)$academicContext['term_school_year_id']!==(int)$academicContext['school_year_id'])throw new \InvalidArgumentException('The selected term does not belong to the section school year.');
                     $pdo->beginTransaction();
                     $find=$pdo->prepare('SELECT id FROM section_subjects WHERE section_id=? AND subject_id=? AND term_id <=> ? LIMIT 1');
                     $find->execute([$section,$subject,$term?:null]);

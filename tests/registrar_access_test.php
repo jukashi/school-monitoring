@@ -46,7 +46,7 @@ try {
     verify(!Authorization::canEditTeacher($teacherId),'Registrar can edit a teacher profile.');
 
     ob_start();(new StudentController())->show((string)$studentId);$studentHtml=(string)ob_get_clean();
-    verify(str_contains($studentHtml,'Temporary password'),'Student-only reset action is missing.');
+    verify(!str_contains($studentHtml,'Temporary password'),'Student profile exposes password reset action.');
     verify(!str_contains($studentHtml,'Assigned supplies'),'Registrar student page exposed inventory.');
     verify((int)$pdo->query("SELECT COUNT(*) FROM audit_logs WHERE user_id={$testUserId} AND action='students.profile_viewed'")->fetchColumn()===1,'Registrar profile view was not audited.');
 

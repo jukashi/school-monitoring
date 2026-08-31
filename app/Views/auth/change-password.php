@@ -1,6 +1,5 @@
 <?php use App\Core\Csrf; ?>
 <section class="card auth-card">
-    <div class="mark">SM</div>
     <p class="eyebrow">First login</p>
     <h1>Create your password</h1>
     <p>Replace the temporary password before continuing to your account.</p>

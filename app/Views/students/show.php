@@ -18,12 +18,6 @@ $teacherSubjects = $teacherSubjects ?? [];
         <?php if (Authorization::canEditStudent((int) $student['id'])): ?>
             <a class="button primary" href="<?= e(url('/students/'.$student['id'].'/edit')) ?>">Edit profile</a>
         <?php endif; ?>
-        <?php if (Authorization::canResetStudentPassword((int) $student['id'])): ?>
-            <form method="post" action="<?= e(url('/students/'.$student['id'].'/temporary-password')) ?>" onsubmit="return confirm('Generate a new temporary password? The current student password will stop working immediately.')">
-                <?= \App\Core\Csrf::field() ?>
-                <button class="button" type="submit">Temporary password</button>
-            </form>
-        <?php endif; ?>
     </div>
 </div>
 
@@ -65,7 +59,7 @@ $teacherSubjects = $teacherSubjects ?? [];
                 <a class="button small" href="<?= e(url('/uniform-id')) ?>">View inventory</a>
             </div>
             <div class="table-card"><table>
-                <thead><tr><th>Item</th><th>Type</th><th>Issued</th><th>Returned</th><th>Outstanding</th><th>Status</th></tr></thead>
+                <thead><tr><th scope="col">Item</th><th scope="col">Type</th><th scope="col">Issued</th><th scope="col">Returned</th><th scope="col">Outstanding</th><th scope="col">Status</th></tr></thead>
                 <tbody>
                 <?php foreach ($inventoryIssues as $issue): ?>
                     <?php $typeLabel = ['uniform' => 'Uniform', 'id_card' => 'ID card', 'other' => 'Other item'][$issue['item_type']] ?? 'Other item'; $outstanding = (int) $issue['quantity'] - (int) $issue['returned_quantity']; ?>
@@ -86,7 +80,38 @@ $teacherSubjects = $teacherSubjects ?? [];
     <section class="card form-section">
         <h2><?= $teacherView ? 'Primary guardian contact' : 'Guardians' ?></h2>
         <?php foreach ($guardians as $guardian): ?>
-            <p><strong><?= e($guardian['first_name'].' '.$guardian['last_name']) ?></strong> <?= $guardian['is_primary'] ? '<span class="badge">Primary</span>' : '' ?><br><small><?= e($guardian['relationship'].' · '.$guardian['phone']) ?></small></p>
+            <div class="guardian-entry" style="display:flex; flex-direction:column; gap:.75rem; padding:.5rem 0; border-bottom:1px solid rgba(91,66,145,.12);">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;">
+                    <p style="margin:0; flex:1;"><strong><?= e($guardian['first_name'].' '.$guardian['last_name']) ?></strong> <?= $guardian['is_primary'] ? '<span class="badge">Primary</span>' : '' ?><br><small><?= e($guardian['relationship'].' · '.$guardian['phone']) ?></small></p>
+                    <?php if (Authorization::isStudentAdministrator() && Authorization::allows('students.edit')): ?>
+                        <div class="guardian-actions" style="margin-left:auto;">
+                            <a class="button small" href="<?= e(url('/students/'.$student['id'].'?edit_guardian='.$guardian['id'])) ?>">Edit</a>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <?php if (Authorization::isStudentAdministrator() && Authorization::allows('students.edit') && (int)($_GET['edit_guardian'] ?? 0) === (int)$guardian['id']): ?>
+                    <form class="stack-form guardian-edit-form" method="post" action="<?= e(url('/students/'.$student['id'].'/guardians/'.$guardian['id'])) ?>" style="display:grid; gap:.75rem; margin:0; padding:.9rem; border:1px solid rgba(91,66,145,.18); border-radius:10px; background:rgba(143,115,198,.04);">
+                        <?= \App\Core\Csrf::field() ?>
+                        <div class="grid two" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem;">
+                            <label>First name<input required name="first_name" value="<?= e($guardian['first_name']) ?>"></label>
+                            <label>Last name<input required name="last_name" value="<?= e($guardian['last_name']) ?>"></label>
+                            <label>Relationship<input required name="relationship" value="<?= e($guardian['relationship']) ?>"></label>
+                            <label>Phone<input type="text" inputmode="numeric" autocomplete="tel" pattern="[0-9]{11}" minlength="11" maxlength="11" title="Enter exactly 11 digits." placeholder="09XXXXXXXXX" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,11)" name="phone" value="<?= e($guardian['phone']) ?>"></label>
+                            <label>Email<input type="email" name="email" value="<?= e($guardian['email']) ?>"></label>
+                            <label>Occupation<input name="occupation" value="<?= e($guardian['occupation']) ?>"></label>
+                        </div>
+                        <label>Address<textarea name="address" rows="2"><?= e($guardian['address']) ?></textarea></label>
+                        <div class="grid two" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem;">
+                            <label class="inline-check"><input type="checkbox" name="is_primary" value="1" <?= !empty($guardian['is_primary']) ? 'checked' : '' ?>> Primary contact</label>
+                            <label class="inline-check"><input type="checkbox" name="can_pick_up" value="1" <?= !empty($guardian['can_pick_up']) ? 'checked' : '' ?>> Authorized pickup</label>
+                        </div>
+                        <div class="inline-actions" style="display:flex; gap:.5rem; flex-wrap:wrap;">
+                            <button class="button primary" type="submit">Save changes</button>
+                            <a class="button" href="<?= e(url('/students/'.$student['id'])) ?>">Cancel</a>
+                        </div>
+                    </form>
+                <?php endif; ?>
+            </div>
         <?php endforeach; ?>
         <?php if (!$guardians): ?><p class="empty"><?= $teacherView ? 'No primary guardian contact is recorded.' : 'No guardians recorded yet.' ?></p><?php endif; ?>
     </section>

@@ -7,7 +7,7 @@ use App\Core\Csrf;
     <div><p class="eyebrow">Administration</p><h1>User accounts</h1><p>Control sign-in access, role assignments, and account recovery.</p></div>
     <?php if(Authorization::allows('users.create')):?><a class="button primary" href="<?=e(url('/admin/users/create'))?>">Create user</a><?php endif;?>
 </div>
-<section class="card table-card"><table><thead><tr><th>User</th><th>Username</th><th>Roles</th><th>Status</th><th>Last login</th><th></th></tr></thead><tbody>
+<section class="card table-card"><table><thead><tr><th scope="col">User</th><th scope="col">Username</th><th scope="col">Roles</th><th scope="col">Status</th><th scope="col">Last login</th><th scope="col" class="action-column">Actions</th></tr></thead><tbody>
 <?php foreach($users as $u):?><tr>
     <td><strong><?=e($u['display_name'])?></strong><br><small><?=e($u['email'])?></small></td>
     <td><?=e($u['username'])?></td><td><?=e($u['roles']?:'No role')?></td><td><span class="badge"><?=e($u['status'])?></span></td><td><?=e($u['last_login_at']?:'Never')?></td>

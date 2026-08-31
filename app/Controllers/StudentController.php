@@ -86,10 +86,56 @@ final class StudentController
         $first=trim($_POST['first_name']??'');$last=trim($_POST['last_name']??'');$relationship=trim($_POST['relationship']??'');
         if($first===''||$last===''||$relationship===''){flash('error','Guardian first name, last name, and relationship are required.');Auth::redirect('/students/'.$id);}
         $email=trim($_POST['email']??'');if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL)){flash('error','Guardian email address is invalid.');Auth::redirect('/students/'.$id);}$phone=trim($_POST['phone']??'');if(Validator::phone($phone)){flash('error','Guardian phone number must contain exactly 11 digits.');Auth::redirect('/students/'.$id);}
+        $guardianFieldErrors=$this->validateGuardianFields($first,$last,$relationship,$email,$phone,trim($_POST['address']??''),trim($_POST['occupation']??''));
+        if($guardianFieldErrors!==[]){flash('error',$guardianFieldErrors[0]);Auth::redirect('/students/'.$id);}
         $pdo=Database::connection();$pdo->beginTransaction();
         try{$pdo->prepare('INSERT INTO guardians(first_name,last_name,phone,email,address,occupation) VALUES(?,?,?,?,?,?)')->execute([$first,$last,$phone?:null,$email?:null,trim($_POST['address']??'')?:null,trim($_POST['occupation']??'')?:null]);$guardianId=(int)$pdo->lastInsertId();$pdo->prepare('INSERT INTO student_guardians(student_id,guardian_id,relationship,is_primary,can_pick_up) VALUES(?,?,?,?,?)')->execute([(int)$id,$guardianId,$relationship,!empty($_POST['is_primary'])?1:0,!empty($_POST['can_pick_up'])?1:0]);$pdo->commit();Auth::audit('students.guardian_added','students',$id,null,['guardian_id'=>$guardianId]);flash('success','Guardian added to the student profile.');}
         catch(\Throwable $e){if($pdo->inTransaction())$pdo->rollBack();flash('error','The guardian could not be saved.');}
         Auth::redirect('/students/'.$id);
+    }
+
+    public function updateGuardian(string $id, string $guardianId): void
+    {
+        if (!Authorization::isStudentAdministrator() || !Authorization::allows('students.edit')) {$this->deny();return;}
+        $studentId=(int)$id;$guardianRecordId=(int)$guardianId;
+        $student=$this->find($studentId);if(!$student)return;
+        $pdo=Database::connection();
+        $link=$pdo->prepare('SELECT 1 FROM student_guardians WHERE student_id=? AND guardian_id=? LIMIT 1');
+        $link->execute([$studentId,$guardianRecordId]);
+        if(!$link->fetch()){$this->deny('The selected guardian is not linked to this student profile.');return;}
+
+        $first=trim($_POST['first_name']??'');$last=trim($_POST['last_name']??'');$relationship=trim($_POST['relationship']??'');
+        if($first===''||$last===''||$relationship===''){flash('error','Guardian first name, last name, and relationship are required.');Auth::redirect('/students/'.$studentId.'?edit_guardian='.$guardianRecordId);}
+        $email=trim($_POST['email']??'');if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL)){flash('error','Guardian email address is invalid.');Auth::redirect('/students/'.$studentId.'?edit_guardian='.$guardianRecordId);}$phone=trim($_POST['phone']??'');if(Validator::phone($phone)){flash('error','Guardian phone number must contain exactly 11 digits.');Auth::redirect('/students/'.$studentId.'?edit_guardian='.$guardianRecordId);}
+        $guardianFieldErrors=$this->validateGuardianFields($first,$last,$relationship,$email,$phone,trim($_POST['address']??''),trim($_POST['occupation']??''));
+        if($guardianFieldErrors!==[]){flash('error',$guardianFieldErrors[0]);Auth::redirect('/students/'.$studentId.'?edit_guardian='.$guardianRecordId);}
+
+        try{
+            $pdo->beginTransaction();
+            $pdo->prepare('UPDATE guardians SET first_name=?,last_name=?,phone=?,email=?,address=?,occupation=?,updated_at=NOW() WHERE id=?')->execute([$first,$last,$phone?:null,$email?:null,trim($_POST['address']??'')?:null,trim($_POST['occupation']??'')?:null,$guardianRecordId]);
+            $pdo->prepare('UPDATE student_guardians SET relationship=?,is_primary=?,can_pick_up=? WHERE student_id=? AND guardian_id=?')->execute([$relationship,!empty($_POST['is_primary'])?1:0,!empty($_POST['can_pick_up'])?1:0,$studentId,$guardianRecordId]);
+            $pdo->commit();
+            Auth::audit('students.guardian_updated','students',(string)$studentId,null,['guardian_id'=>$guardianRecordId]);
+            flash('success','Guardian details updated.');
+        }catch(\Throwable $e){
+            if($pdo->inTransaction())$pdo->rollBack();
+            error_log('[guardian-update] '.$e->getMessage());
+            flash('error','The guardian could not be updated: '.$e->getMessage());
+        }
+        Auth::redirect('/students/'.$studentId);
+    }
+
+    private function validateGuardianFields(string $firstName, string $lastName, string $relationship, string $email, string $phone, string $address, string $occupation): array
+    {
+        $errors=[];
+        if (mb_strlen($firstName, 'UTF-8') > 80) $errors[] = 'Guardian first name is too long.';
+        if (mb_strlen($lastName, 'UTF-8') > 80) $errors[] = 'Guardian last name is too long.';
+        if (mb_strlen($relationship, 'UTF-8') > 50) $errors[] = 'Guardian relationship is too long.';
+        if ($email !== '' && mb_strlen($email, 'UTF-8') > 191) $errors[] = 'Guardian email is too long.';
+        if ($phone !== '' && mb_strlen($phone, 'UTF-8') > 30) $errors[] = 'Guardian phone number is too long.';
+        if (mb_strlen($address, 'UTF-8') > 65535) $errors[] = 'Guardian address is too long.';
+        if (mb_strlen($occupation, 'UTF-8') > 120) $errors[] = 'Guardian occupation is too long.';
+        return $errors;
     }
 
     public function temporaryPassword(string $id): void

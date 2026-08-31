@@ -79,6 +79,7 @@ $router->get('/students/{id}', [$students, 'show'], 'students.view');
 $router->get('/students/{id}/edit', [$students, 'edit'], 'students.view');
 $router->post('/students/{id}', [$students, 'update'], 'students.view');
 $router->post('/students/{id}/guardians', [$students, 'addGuardian'], 'students.edit');
+$router->post('/students/{id}/guardians/{guardianId}', [$students, 'updateGuardian'], 'students.edit');
 $router->post('/students/{id}/temporary-password', [$students, 'temporaryPassword'], 'student_accounts.reset_password');
 $router->get('/teachers', [$teachers, 'index'], 'teachers.view');
 $router->get('/teachers/create', [$teachers, 'create'], 'teachers.create');

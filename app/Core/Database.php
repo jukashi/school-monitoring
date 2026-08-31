@@ -31,6 +31,7 @@ final class Database
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
+        $pdo->exec("SET SESSION sql_mode = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ZERO_IN_DATE,NO_ZERO_DATE,NO_ENGINE_SUBSTITUTION'");
         if (!$withoutDatabase && $override === null) {
             self::$connection = $pdo;
         }
@@ -42,4 +43,3 @@ final class Database
         self::$connection = null;
     }
 }
-

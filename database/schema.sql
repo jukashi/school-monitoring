@@ -4,6 +4,11 @@ CREATE DATABASE IF NOT EXISTS school_monitoring
 
 USE school_monitoring;
 
+CREATE TABLE schema_migrations (
+    migration VARCHAR(191) PRIMARY KEY,
+    applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 CREATE TABLE users (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
@@ -144,7 +149,7 @@ CREATE TABLE teachers (
     CONSTRAINT fk_teachers_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_teachers_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
     INDEX idx_teachers_name (last_name, first_name),
-    INDEX idx_teachers_status (employment_status)
+    INDEX idx_teachers_status_name (employment_status, last_name, first_name)
 ) ENGINE=InnoDB;
 
 CREATE TABLE students (
@@ -167,7 +172,7 @@ CREATE TABLE students (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_students_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_students_name (last_name, first_name),
-    INDEX idx_students_status (student_status)
+    INDEX idx_students_status_name (student_status, last_name, first_name)
 ) ENGINE=InnoDB;
 
 CREATE TABLE guardians (
@@ -233,9 +238,10 @@ CREATE TABLE section_subjects (
     section_id BIGINT UNSIGNED NOT NULL,
     subject_id BIGINT UNSIGNED NOT NULL,
     term_id BIGINT UNSIGNED NULL,
+    term_id_key BIGINT UNSIGNED GENERATED ALWAYS AS (IFNULL(term_id, 0)) PERSISTENT,
     schedule_text VARCHAR(255) NULL,
     room VARCHAR(80) NULL,
-    UNIQUE KEY uq_section_subject_term (section_id, subject_id, term_id),
+    UNIQUE KEY uq_section_subject_term (section_id, subject_id, term_id_key),
     CONSTRAINT fk_section_subjects_section FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE,
     CONSTRAINT fk_section_subjects_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE RESTRICT,
     CONSTRAINT fk_section_subjects_term FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE RESTRICT
@@ -260,11 +266,13 @@ CREATE TABLE attendance_sessions (
     session_type ENUM('daily', 'class') NOT NULL DEFAULT 'daily',
     starts_at TIME NULL,
     ends_at TIME NULL,
+    section_subject_id_key BIGINT UNSIGNED GENERATED ALWAYS AS (IFNULL(section_subject_id, 0)) PERSISTENT,
+    starts_at_key TIME GENERATED ALWAYS AS (IFNULL(starts_at, CAST('00:00:00' AS TIME))) PERSISTENT,
     recorded_by BIGINT UNSIGNED NOT NULL,
     notes VARCHAR(500) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_attendance_session (section_id, section_subject_id, attendance_date, session_type, starts_at),
+    UNIQUE KEY uq_attendance_session (section_id, section_subject_id_key, attendance_date, session_type, starts_at_key),
     CONSTRAINT fk_attendance_sessions_section FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE RESTRICT,
     CONSTRAINT fk_attendance_sessions_section_subject FOREIGN KEY (section_subject_id) REFERENCES section_subjects(id) ON DELETE RESTRICT,
     CONSTRAINT fk_attendance_sessions_recorder FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT,
@@ -302,7 +310,8 @@ CREATE TABLE teacher_attendance (
     UNIQUE KEY uq_teacher_attendance (teacher_id, attendance_date),
     CONSTRAINT fk_teacher_attendance_teacher FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE RESTRICT,
     CONSTRAINT fk_teacher_attendance_recorder FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT,
-    INDEX idx_teacher_attendance_date_status (attendance_date, status)
+    INDEX idx_teacher_attendance_date_status (attendance_date, status),
+    CONSTRAINT chk_teacher_attendance_times CHECK (time_out IS NULL OR time_in IS NULL OR time_out >= time_in)
 ) ENGINE=InnoDB;
 
 CREATE TABLE events (
@@ -320,7 +329,7 @@ CREATE TABLE events (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_events_organizer FOREIGN KEY (organizer_user_id) REFERENCES users(id) ON DELETE RESTRICT,
     INDEX idx_events_schedule (starts_at, ends_at),
-    INDEX idx_events_status (status),
+    INDEX idx_events_status_schedule (status, starts_at),
     CHECK (ends_at >= starts_at)
 ) ENGINE=InnoDB;
 
@@ -341,7 +350,12 @@ CREATE TABLE event_participants (
     UNIQUE KEY uq_event_student (event_id, student_id),
     UNIQUE KEY uq_event_teacher (event_id, teacher_id),
     UNIQUE KEY uq_event_user (event_id, user_id),
-    INDEX idx_event_participants_type (event_id, participant_type)
+    INDEX idx_event_participants_type (event_id, participant_type),
+    CONSTRAINT chk_event_participant_target CHECK (
+        (participant_type = 'student' AND student_id IS NOT NULL AND teacher_id IS NULL AND user_id IS NULL) OR
+        (participant_type = 'teacher' AND student_id IS NULL AND teacher_id IS NOT NULL AND user_id IS NULL) OR
+        (participant_type = 'user' AND student_id IS NULL AND teacher_id IS NULL AND user_id IS NOT NULL)
+    )
 ) ENGINE=InnoDB;
 
 CREATE TABLE event_attendance (
@@ -354,7 +368,8 @@ CREATE TABLE event_attendance (
     recorded_by BIGINT UNSIGNED NOT NULL,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_event_attendance_participant FOREIGN KEY (event_participant_id) REFERENCES event_participants(id) ON DELETE CASCADE,
-    CONSTRAINT fk_event_attendance_recorder FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT
+    CONSTRAINT fk_event_attendance_recorder FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT chk_event_attendance_times CHECK (checked_out_at IS NULL OR checked_in_at IS NULL OR checked_out_at >= checked_in_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE announcements (
@@ -435,7 +450,11 @@ CREATE TABLE tuition_fee_schedules (
     CONSTRAINT fk_tuition_schedule_term FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE SET NULL,
     CONSTRAINT fk_tuition_schedule_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
     INDEX idx_tuition_schedule_grade_year (grade_level_id, school_year_id, status),
-    CHECK (amount > 0)
+    CONSTRAINT chk_tuition_schedule_components CHECK (
+        tuition_fee_amount >= 0 AND entrance_fee_amount >= 0 AND paces_fee_amount >= 0 AND
+        closing_fee_amount >= 0 AND shuttle_fee_amount >= 0 AND
+        amount = tuition_fee_amount + entrance_fee_amount + paces_fee_amount + closing_fee_amount + shuttle_fee_amount
+    )
 ) ENGINE=InnoDB;
 
 CREATE TABLE tuition_assessments (
@@ -463,8 +482,13 @@ CREATE TABLE tuition_assessments (
     CONSTRAINT fk_tuition_assessment_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
     INDEX idx_tuition_student_year (student_id, school_year_id),
     INDEX idx_tuition_due_status (due_date, status),
+    INDEX idx_tuition_assessment_created (created_at),
     UNIQUE KEY uq_tuition_student_schedule (student_id, fee_schedule_id),
-    CHECK (amount > 0)
+    CONSTRAINT chk_tuition_assessment_components CHECK (
+        tuition_fee_amount >= 0 AND entrance_fee_amount >= 0 AND paces_fee_amount >= 0 AND
+        closing_fee_amount >= 0 AND shuttle_fee_amount >= 0 AND
+        amount = tuition_fee_amount + entrance_fee_amount + paces_fee_amount + closing_fee_amount + shuttle_fee_amount
+    )
 ) ENGINE=InnoDB;
 
 CREATE TABLE tuition_payments (
@@ -529,7 +553,14 @@ CREATE TABLE insurance_policies (
     CONSTRAINT fk_insurance_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
     INDEX idx_insurance_holder (holder_type, student_id, teacher_id, employee_id),
     INDEX idx_insurance_expiry (coverage_end, status),
-    CHECK (coverage_end >= coverage_start)
+    INDEX idx_insurance_status_expiry (holder_type, status, coverage_end, created_at),
+    CONSTRAINT chk_insurance_dates CHECK (coverage_end >= coverage_start),
+    CONSTRAINT chk_insurance_amounts CHECK ((premium_amount IS NULL OR premium_amount >= 0) AND (coverage_amount IS NULL OR coverage_amount >= 0)),
+    CONSTRAINT chk_insurance_holder_target CHECK (
+        (holder_type = 'student' AND student_id IS NOT NULL AND teacher_id IS NULL AND employee_id IS NULL) OR
+        (holder_type = 'teacher' AND student_id IS NULL AND teacher_id IS NOT NULL AND employee_id IS NULL) OR
+        (holder_type = 'employee' AND student_id IS NULL AND teacher_id IS NULL AND employee_id IS NOT NULL)
+    )
 ) ENGINE=InnoDB;
 
 CREATE TABLE insurance_claims (
@@ -548,7 +579,7 @@ CREATE TABLE insurance_claims (
     CONSTRAINT fk_insurance_claim_policy FOREIGN KEY (insurance_policy_id) REFERENCES insurance_policies(id) ON DELETE RESTRICT,
     CONSTRAINT fk_insurance_claim_recorder FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT,
     INDEX idx_insurance_claim_status (status, filed_on),
-    CHECK (claim_amount > 0)
+    CONSTRAINT chk_insurance_claim_amounts CHECK (claim_amount > 0 AND (approved_amount IS NULL OR (approved_amount >= 0 AND approved_amount <= claim_amount)))
 ) ENGINE=InnoDB;
 
 CREATE TABLE inventory_items (
@@ -592,7 +623,12 @@ CREATE TABLE inventory_issues (
     CONSTRAINT fk_inventory_issue_user FOREIGN KEY (issued_by) REFERENCES users(id) ON DELETE RESTRICT,
     INDEX idx_inventory_issue_recipient (recipient_type, student_id, teacher_id, employee_id),
     INDEX idx_inventory_issue_date (issued_on, status),
-    CHECK (quantity > 0), CHECK (returned_quantity <= quantity)
+    CONSTRAINT chk_inventory_issue_quantities CHECK (quantity > 0 AND returned_quantity <= quantity),
+    CONSTRAINT chk_inventory_issue_recipient CHECK (
+        (recipient_type = 'student' AND student_id IS NOT NULL AND teacher_id IS NULL AND employee_id IS NULL) OR
+        (recipient_type = 'teacher' AND student_id IS NULL AND teacher_id IS NOT NULL AND employee_id IS NULL) OR
+        (recipient_type = 'employee' AND student_id IS NULL AND teacher_id IS NULL AND employee_id IS NOT NULL)
+    )
 ) ENGINE=InnoDB;
 
 CREATE TABLE inventory_movements (

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Database;
+use App\Core\Migrator;
 use App\Core\View;
 use PDO;
 use Throwable;
@@ -55,6 +56,7 @@ final class InstallerController
             $server->exec("CREATE DATABASE IF NOT EXISTS `{$databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
             $pdo = Database::connection(false, $config);
             $this->runSchema($pdo);
+            Migrator::markAllApplied($pdo);
             $this->seed($pdo, $values, $password);
             $this->writeEnvironment($values, $dbPassword);
             if (!is_dir(APP_ROOT . '/storage')) {
