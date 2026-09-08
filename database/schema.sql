@@ -131,6 +131,9 @@ CREATE TABLE teachers (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NULL UNIQUE,
     employee_no VARCHAR(50) NOT NULL UNIQUE,
+    sss_no VARCHAR(30) NULL,
+    pagibig_no VARCHAR(30) NULL,
+    philhealth_no VARCHAR(30) NULL,
     department_id BIGINT UNSIGNED NULL,
     first_name VARCHAR(80) NOT NULL,
     middle_name VARCHAR(80) NULL,
@@ -385,7 +388,8 @@ CREATE TABLE announcements (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_announcements_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL,
     CONSTRAINT fk_announcements_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
-    INDEX idx_announcements_publish (published_at, expires_at)
+    INDEX idx_announcements_publish (published_at, expires_at),
+    CONSTRAINT chk_announcement_window CHECK (expires_at IS NULL OR published_at IS NULL OR expires_at > published_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE audit_logs (

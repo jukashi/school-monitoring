@@ -13,6 +13,7 @@ return [
     'reports.view' => 'View reports', 'reports.export' => 'Export reports',
     'tuition.view' => 'View tuition assessments and balances', 'tuition.manage' => 'Manage tuition assessments', 'tuition.record_payment' => 'Record tuition payments', 'tuition.export' => 'Export tuition records',
     'insurance.view' => 'View insurance policies and coverage', 'insurance.manage' => 'Manage employees and insurance policies', 'insurance.claims' => 'Record and update insurance claims', 'insurance.export' => 'Export insurance records',
+    'employees.delete' => 'Delete employee records',
     'inventory.view' => 'View uniform and ID inventory', 'inventory.manage' => 'Create items and adjust stock', 'inventory.issue' => 'Issue and return uniforms and IDs', 'inventory.export' => 'Export inventory records',
     'users.view' => 'View users', 'users.create' => 'Create users', 'users.edit' => 'Edit users', 'users.disable' => 'Disable users',
     'roles.view' => 'View roles', 'roles.manage' => 'Manage role permissions',

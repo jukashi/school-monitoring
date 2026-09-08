@@ -64,6 +64,11 @@ final class Authorization
         return self::hasAnyRole('Super Administrator', 'Administrator', 'Administrator / Registrar');
     }
 
+    public static function isSuperAdministrator(): bool
+    {
+        return self::hasAnyRole('Super Administrator');
+    }
+
     public static function isRegistrar(): bool
     {
         return self::hasAnyRole('Registrar') && !self::isSystemAdministrator();

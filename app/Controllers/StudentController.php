@@ -10,6 +10,8 @@ use App\Core\Authorization;
 use App\Core\Database;
 use App\Core\Validator;
 use App\Core\View;
+use App\Services\PersonRecordDeletionService;
+use Throwable;
 
 final class StudentController
 {
@@ -79,6 +81,22 @@ final class StudentController
     }
     public function store(): void { if(!$this->canCreate())return;$this->save(); }
     public function update(string $id): void { $studentId=(int)$id;if(!Authorization::canEditStudent($studentId)){$this->deny();return;}$this->save($studentId); }
+
+    public function destroy(string $id): void
+    {
+        if (!Authorization::isSuperAdministrator()) {
+            $this->deny('Only a Super Administrator can delete student records.');
+            return;
+        }
+
+        try {
+            (new PersonRecordDeletionService(Database::connection()))->deleteStudent((int) $id);
+            flash('success', 'Student record deleted.');
+        } catch (Throwable $exception) {
+            flash('error', $exception instanceof \RuntimeException ? $exception->getMessage() : 'The student record could not be deleted.');
+        }
+        Auth::redirect('/students');
+    }
     public function addGuardian(string $id): void
     {
         if (!Authorization::isStudentAdministrator() || !Authorization::allows('students.edit')) {$this->deny();return;}

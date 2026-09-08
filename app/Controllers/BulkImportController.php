@@ -18,7 +18,7 @@ final class BulkImportController
     private const MAX_BYTES = 5242880;
     private const MAX_ROWS = 500;
     private const STUDENT_HEADERS = ['student_no','first_name','middle_name','last_name','suffix','sex','birth_date','phone','email','address','admission_date','status','school_year','grade_level','section'];
-    private const TEACHER_HEADERS = ['employee_no','first_name','middle_name','last_name','suffix','sex','birth_date','phone','email','address','hire_date','status','department'];
+    private const TEACHER_HEADERS = ['employee_no','sss_no','pagibig_no','philhealth_no','first_name','middle_name','last_name','suffix','sex','birth_date','phone','email','address','hire_date','status','department'];
 
     public function students(): void { if($this->requireStudentImporter())$this->page('students', []); }
     public function teachers(): void { if($this->requireTeacherAdministrator())$this->page('teachers', []); }
@@ -59,9 +59,9 @@ final class BulkImportController
         $credentials=[];
         try {
             $pdo->beginTransaction();
-            $insert=$pdo->prepare('INSERT INTO teachers(employee_no,department_id,first_name,middle_name,last_name,suffix,sex,birth_date,phone,email,address,hire_date,employment_status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');
+            $insert=$pdo->prepare('INSERT INTO teachers(employee_no,sss_no,pagibig_no,philhealth_no,department_id,first_name,middle_name,last_name,suffix,sex,birth_date,phone,email,address,hire_date,employment_status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
             foreach($rows as $row){
-                $insert->execute([$row['employee_no'],$row['_department_id']?:null,$row['first_name'],$row['middle_name']?:null,$row['last_name'],$row['suffix']?:null,$row['sex']?:null,$row['birth_date']?:null,$row['phone']?:null,$row['email']?:null,$row['address']?:null,$row['hire_date']?:null,$row['status']]);
+                $insert->execute([$row['employee_no'],$row['sss_no']?:null,$row['pagibig_no']?:null,$row['philhealth_no']?:null,$row['_department_id']?:null,$row['first_name'],$row['middle_name']?:null,$row['last_name'],$row['suffix']?:null,$row['sex']?:null,$row['birth_date']?:null,$row['phone']?:null,$row['email']?:null,$row['address']?:null,$row['hire_date']?:null,$row['status']]);
                 $teacherId=(int)$pdo->lastInsertId();
                 $account=AccountProvisioner::createForProfile($pdo,'teachers',$teacherId,$row['employee_no'],$row['email'],$row['first_name'].' '.$row['last_name'],'Teacher');
                 $credentials[]=['reference_no'=>$row['employee_no'],'full_name'=>$row['first_name'].' '.$row['last_name'],'username'=>$account['username'],'temporary_password'=>$account['temporary_password'],'role'=>'Teacher'];
@@ -128,7 +128,7 @@ final class BulkImportController
     private function validateTeachers(array $rows): array
     {
         $pdo=Database::connection();$errors=[];$seen=[];$existingValues=array_merge($pdo->query('SELECT employee_no FROM teachers')->fetchAll(PDO::FETCH_COLUMN),$pdo->query('SELECT username FROM users')->fetchAll(PDO::FETCH_COLUMN));$existing=array_fill_keys(array_map('strtolower',$existingValues),true);$departments=[];foreach($pdo->query('SELECT id,code,name FROM departments WHERE status="active"')->fetchAll() as $x){$departments[strtolower($x['code'])]=(int)$x['id'];$departments[strtolower($x['name'])]=(int)$x['id'];}
-        foreach($rows as &$row){$line=$row['_line'];foreach(['employee_no'=>'employee number','first_name'=>'first name','last_name'=>'last name'] as $key=>$label)if($row[$key]==='')$errors[]="Row {$line}: {$label} is required.";if($row['employee_no']!==''&&(isset($seen[strtolower($row['employee_no'])])||isset($existing[strtolower($row['employee_no'])])))$errors[]="Row {$line}: employee number {$row['employee_no']} is duplicated or already exists.";$seen[strtolower($row['employee_no'])]=true;$this->common($row,$line,['active','on_leave','inactive','separated'],'hire_date',$errors);$row['_department_id']=null;if($row['department']!==''){if(!isset($departments[strtolower($row['department'])]))$errors[]="Row {$line}: department {$row['department']} does not match an active department code or name.";else$row['_department_id']=$departments[strtolower($row['department'])];}}
+        foreach($rows as &$row){$line=$row['_line'];foreach(['employee_no'=>'employee number','first_name'=>'first name','last_name'=>'last name'] as $key=>$label)if($row[$key]==='')$errors[]="Row {$line}: {$label} is required.";if($row['employee_no']!==''&&(isset($seen[strtolower($row['employee_no'])])||isset($existing[strtolower($row['employee_no'])])))$errors[]="Row {$line}: employee number {$row['employee_no']} is duplicated or already exists.";$seen[strtolower($row['employee_no'])]=true;$this->common($row,$line,['active','on_leave','inactive','separated'],'hire_date',$errors);$this->governmentIds($row,$line,$errors);$row['_department_id']=null;if($row['department']!==''){if(!isset($departments[strtolower($row['department'])]))$errors[]="Row {$line}: department {$row['department']} does not match an active department code or name.";else$row['_department_id']=$departments[strtolower($row['department'])];}}
         unset($row);return[$rows,$errors];
     }
 
@@ -140,6 +140,15 @@ final class BulkImportController
         foreach(['birth_date',$secondDate] as $field)if($row[$field]!==''&&!$this->date($row[$field]))$errors[]="Row {$line}: {$field} must use YYYY-MM-DD.";
         if($row['email']!==''&&!filter_var($row['email'],FILTER_VALIDATE_EMAIL))$errors[]="Row {$line}: email address is invalid.";
         if($row['phone']!==''&&!preg_match('/^\d{11}$/',$row['phone']))$errors[]="Row {$line}: phone must contain exactly 11 digits.";
+    }
+
+    private function governmentIds(array $row, int $line, array &$errors): void
+    {
+        foreach (['sss_no' => 'SSS number', 'pagibig_no' => 'Pag-IBIG number', 'philhealth_no' => 'PhilHealth number'] as $field => $label) {
+            if ($row[$field] !== '' && !preg_match('/^[0-9 -]{1,30}$/', $row[$field])) {
+                $errors[] = "Row {$line}: {$label} may contain only numbers, spaces, and hyphens (maximum 30 characters).";
+            }
+        }
     }
 
     private function credentialCsv(string $type,array $credentials): void

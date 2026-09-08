@@ -10,6 +10,7 @@ use App\Core\Authorization;
 use App\Core\Database;
 use App\Core\Validator;
 use App\Core\View;
+use App\Services\PersonRecordDeletionService;
 use Throwable;
 
 final class TeacherController
@@ -41,24 +42,40 @@ final class TeacherController
     public function store():void { if(!$this->canCreate())return;$this->save(); }
     public function update(string $id):void { $teacherId=(int)$id;if(!Authorization::canEditTeacher($teacherId)){$this->deny();return;}$this->save($teacherId); }
 
+    public function destroy(string $id): void
+    {
+        if (!Authorization::isSuperAdministrator()) {
+            $this->deny('Only a Super Administrator can delete teacher records.');
+            return;
+        }
+
+        try {
+            (new PersonRecordDeletionService(Database::connection()))->deleteTeacher((int) $id);
+            flash('success', 'Teacher record deleted.');
+        } catch (Throwable $exception) {
+            flash('error', $exception instanceof \RuntimeException ? $exception->getMessage() : 'The teacher record could not be deleted.');
+        }
+        Auth::redirect('/teachers');
+    }
+
     private function save(?int $id=null):void
     {
         $creating=$id===null;$selfEditing=!$creating&&Authorization::isTeacherOnly();$existing=$id?$this->raw($id):null;if($id&&!$existing){$this->find($id);return;}$in=$this->input();
         if($selfEditing&&$existing){foreach(['employee_no','department_id','hire_date','employment_status'] as $field)$in[$field]=$existing[$field]??'';}
-        $errors=array_merge(Validator::required($in,['employee_no'=>'Employee number','first_name'=>'First name','last_name'=>'Last name']),Validator::email($in['email']),Validator::phone($in['phone']),Validator::date($in['birth_date'],'birth_date','Birth date'),Validator::date($in['hire_date'],'hire_date','Hire date'));
+        $errors=array_merge(Validator::required($in,['employee_no'=>'Employee number','first_name'=>'First name','last_name'=>'Last name']),Validator::email($in['email']),Validator::phone($in['phone']),Validator::date($in['birth_date'],'birth_date','Birth date'),Validator::date($in['hire_date'],'hire_date','Hire date'),Validator::governmentId($in['sss_no'],'sss_no','SSS number'),Validator::governmentId($in['pagibig_no'],'pagibig_no','Pag-IBIG number'),Validator::governmentId($in['philhealth_no'],'philhealth_no','PhilHealth number'));
         if($errors){View::render('teachers/form',array_merge($this->data($id?$this->raw($id):null,$errors,$in),['selfEditing'=>$selfEditing]));return;}
         $pdo=Database::connection();$credentials=null;
         try{
             $pdo->beginTransaction();
-            $v=[$in['employee_no'],$in['department_id']?:null,$in['first_name'],$in['middle_name']?:null,$in['last_name'],$in['suffix']?:null,$in['sex']?:null,$in['birth_date']?:null,$in['phone']?:null,$in['email']?:null,$in['address']?:null,$in['hire_date']?:null,$in['employment_status']];
-            if($id){$v[]=$id;$pdo->prepare('UPDATE teachers SET employee_no=?,department_id=?,first_name=?,middle_name=?,last_name=?,suffix=?,sex=?,birth_date=?,phone=?,email=?,address=?,hire_date=?,employment_status=? WHERE id=?')->execute($v);AccountProvisioner::syncLinkedAccount($pdo,'teachers',$id,$in['employee_no'],$in['email'],$in['first_name'].' '.$in['last_name']);}
-            else{$pdo->prepare('INSERT INTO teachers(employee_no,department_id,first_name,middle_name,last_name,suffix,sex,birth_date,phone,email,address,hire_date,employment_status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute($v);$id=(int)$pdo->lastInsertId();$credentials=AccountProvisioner::createForProfile($pdo,'teachers',$id,$in['employee_no'],$in['email'],$in['first_name'].' '.$in['last_name'],'Teacher');}
+            $v=[$in['employee_no'],$in['sss_no']?:null,$in['pagibig_no']?:null,$in['philhealth_no']?:null,$in['department_id']?:null,$in['first_name'],$in['middle_name']?:null,$in['last_name'],$in['suffix']?:null,$in['sex']?:null,$in['birth_date']?:null,$in['phone']?:null,$in['email']?:null,$in['address']?:null,$in['hire_date']?:null,$in['employment_status']];
+            if($id){$v[]=$id;$pdo->prepare('UPDATE teachers SET employee_no=?,sss_no=?,pagibig_no=?,philhealth_no=?,department_id=?,first_name=?,middle_name=?,last_name=?,suffix=?,sex=?,birth_date=?,phone=?,email=?,address=?,hire_date=?,employment_status=? WHERE id=?')->execute($v);AccountProvisioner::syncLinkedAccount($pdo,'teachers',$id,$in['employee_no'],$in['email'],$in['first_name'].' '.$in['last_name']);}
+            else{$pdo->prepare('INSERT INTO teachers(employee_no,sss_no,pagibig_no,philhealth_no,department_id,first_name,middle_name,last_name,suffix,sex,birth_date,phone,email,address,hire_date,employment_status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute($v);$id=(int)$pdo->lastInsertId();$credentials=AccountProvisioner::createForProfile($pdo,'teachers',$id,$in['employee_no'],$in['email'],$in['first_name'].' '.$in['last_name'],'Teacher');}
             $pdo->commit();
             Auth::audit($creating?'teachers.created':'teachers.updated','teachers',(string)$id,null,$in);flash('success','Teacher profile saved.'.($creating?' A login account was created automatically.':''));if($credentials)flash('account_credentials',json_encode($credentials));Auth::redirect('/teachers/'.$id);
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();$errors['form']='The employee number is already used by a profile or login account.';View::render('teachers/form',array_merge($this->data($id?$this->raw($id):null,$errors,$in),['selfEditing'=>$selfEditing]));}
     }
 
-    private function input():array { return ['employee_no'=>trim($_POST['employee_no']??''),'department_id'=>trim($_POST['department_id']??''),'first_name'=>trim($_POST['first_name']??''),'middle_name'=>trim($_POST['middle_name']??''),'last_name'=>trim($_POST['last_name']??''),'suffix'=>trim($_POST['suffix']??''),'sex'=>trim($_POST['sex']??''),'birth_date'=>trim($_POST['birth_date']??''),'phone'=>trim($_POST['phone']??''),'email'=>trim($_POST['email']??''),'address'=>trim($_POST['address']??''),'hire_date'=>trim($_POST['hire_date']??''),'employment_status'=>trim($_POST['employment_status']??'active')]; }
+    private function input():array { return ['employee_no'=>trim($_POST['employee_no']??''),'sss_no'=>trim($_POST['sss_no']??''),'pagibig_no'=>trim($_POST['pagibig_no']??''),'philhealth_no'=>trim($_POST['philhealth_no']??''),'department_id'=>trim($_POST['department_id']??''),'first_name'=>trim($_POST['first_name']??''),'middle_name'=>trim($_POST['middle_name']??''),'last_name'=>trim($_POST['last_name']??''),'suffix'=>trim($_POST['suffix']??''),'sex'=>trim($_POST['sex']??''),'birth_date'=>trim($_POST['birth_date']??''),'phone'=>trim($_POST['phone']??''),'email'=>trim($_POST['email']??''),'address'=>trim($_POST['address']??''),'hire_date'=>trim($_POST['hire_date']??''),'employment_status'=>trim($_POST['employment_status']??'active')]; }
     private function data(?array $teacher,array $errors,array $input):array { return compact('teacher','errors','input')+['selfEditing'=>false,'departments'=>Database::connection()->query('SELECT * FROM departments WHERE status="active" ORDER BY name')->fetchAll()]; }
     private function raw(int $id):?array { $s=Database::connection()->prepare('SELECT t.*,d.name department FROM teachers t LEFT JOIN departments d ON d.id=t.department_id WHERE t.id=?');$s->execute([$id]);return $s->fetch()?:null; }
     private function find(int $id):?array { $t=$this->raw($id);if(!$t){http_response_code(404);View::render('errors/message',['title'=>'Teacher not found','message'=>'The requested teacher profile does not exist.']);return null;}return $t; }

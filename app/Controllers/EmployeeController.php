@@ -6,9 +6,11 @@ namespace App\Controllers;
 
 use App\Core\AccountProvisioner;
 use App\Core\Auth;
+use App\Core\Authorization;
 use App\Core\Database;
 use App\Core\Validator;
 use App\Core\View;
+use App\Services\PersonRecordDeletionService;
 use Throwable;
 
 final class EmployeeController
@@ -23,6 +25,23 @@ final class EmployeeController
     public function edit(string $id):void { $employee=$this->find((int)$id);if($employee)View::render('insurance/employees/form',$this->data($employee,[],[])); }
     public function store():void { $this->save(); }
     public function update(string $id):void { $this->save((int)$id); }
+
+    public function destroy(string $id): void
+    {
+        if (!Authorization::isSuperAdministrator()) {
+            http_response_code(403);
+            View::render('errors/message', ['title' => 'Access denied', 'message' => 'Only a Super Administrator can delete employee records.']);
+            return;
+        }
+
+        try {
+            (new PersonRecordDeletionService(Database::connection()))->deleteEmployee((int) $id);
+            flash('success', 'Employee record deleted.');
+        } catch (Throwable $exception) {
+            flash('error', $exception instanceof \RuntimeException ? $exception->getMessage() : 'The employee record could not be deleted.');
+        }
+        Auth::redirect('/insurance/employees');
+    }
 
     private function save(?int $id=null):void
     {

@@ -78,6 +78,7 @@ $router->get('/students/import/template', [$bulkImports, 'studentTemplate'], 'st
 $router->get('/students/{id}', [$students, 'show'], 'students.view');
 $router->get('/students/{id}/edit', [$students, 'edit'], 'students.view');
 $router->post('/students/{id}', [$students, 'update'], 'students.view');
+$router->post('/students/{id}/delete', [$students, 'destroy'], 'students.delete');
 $router->post('/students/{id}/guardians', [$students, 'addGuardian'], 'students.edit');
 $router->post('/students/{id}/guardians/{guardianId}', [$students, 'updateGuardian'], 'students.edit');
 $router->post('/students/{id}/temporary-password', [$students, 'temporaryPassword'], 'student_accounts.reset_password');
@@ -90,6 +91,7 @@ $router->get('/teachers/import/template', [$bulkImports, 'teacherTemplate'], 'te
 $router->get('/teachers/{id}', [$teachers, 'show'], 'teachers.view');
 $router->get('/teachers/{id}/edit', [$teachers, 'edit'], 'teachers.view');
 $router->post('/teachers/{id}', [$teachers, 'update'], 'teachers.view');
+$router->post('/teachers/{id}/delete', [$teachers, 'destroy'], 'teachers.delete');
 $router->get('/attendance/students', [$attendance, 'students'], 'attendance.view');
 $router->post('/attendance/students', [$attendance, 'recordStudents'], 'attendance.record');
 $router->get('/attendance/teachers', [$attendance, 'teachers'], 'attendance.view');
@@ -121,6 +123,7 @@ $router->get('/insurance/employees/create', [$employees, 'create'], 'insurance.m
 $router->post('/insurance/employees', [$employees, 'store'], 'insurance.manage');
 $router->get('/insurance/employees/{id}/edit', [$employees, 'edit'], 'insurance.manage');
 $router->post('/insurance/employees/{id}', [$employees, 'update'], 'insurance.manage');
+$router->post('/insurance/employees/{id}/delete', [$employees, 'destroy'], 'employees.delete');
 $router->get('/insurance/{id}', [$insurance, 'show'], 'insurance.view');
 $router->post('/insurance/{id}/claims', [$insurance, 'addClaim'], 'insurance.claims');
 $router->post('/insurance/{id}/claims/{claimId}', [$insurance, 'updateClaim'], 'insurance.claims');

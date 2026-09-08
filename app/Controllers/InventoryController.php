@@ -36,7 +36,8 @@ final class InventoryController
         $summary = $pdo->query('SELECT COUNT(*) item_count,COALESCE(SUM(quantity_on_hand),0) units_available,SUM(is_active=1 AND quantity_on_hand<=reorder_level) low_stock_count,(SELECT COALESCE(SUM(quantity-returned_quantity),0) FROM inventory_issues WHERE status<>"returned") issued_count FROM inventory_items')->fetch();
         $issues = $pdo->query('SELECT x.*,i.sku,i.name item_name,i.variant,COALESCE(CONCAT(s.last_name,", ",s.first_name),CONCAT(t.last_name,", ",t.first_name),CONCAT(e.last_name,", ",e.first_name)) recipient_name,COALESCE(s.student_no,t.employee_no,e.employee_no) reference_no FROM inventory_issues x JOIN inventory_items i ON i.id=x.inventory_item_id LEFT JOIN students s ON s.id=x.student_id LEFT JOIN teachers t ON t.id=x.teacher_id LEFT JOIN employees e ON e.id=x.employee_id ORDER BY x.issued_on DESC,x.id DESC LIMIT 100')->fetchAll();
         $movements = $pdo->query('SELECT m.*,i.sku,i.name item_name,u.display_name recorder FROM inventory_movements m JOIN inventory_items i ON i.id=m.inventory_item_id JOIN users u ON u.id=m.recorded_by ORDER BY m.created_at DESC,m.id DESC LIMIT 20')->fetchAll();
-        View::render('inventory/index', compact('items', 'summary', 'issues', 'movements', 'q', 'type'));
+        $currency = $pdo->query('SELECT setting_value FROM system_settings WHERE setting_key="currency_symbol"')->fetchColumn() ?: 'PHP';
+        View::render('inventory/index', compact('items', 'summary', 'issues', 'movements', 'q', 'type', 'currency'));
     }
 
     public function create(): void

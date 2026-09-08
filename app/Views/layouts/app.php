@@ -32,12 +32,12 @@ $styles[]='branding.css?v=4';
 $styles[]='layout-fixes.css';
 if(str_starts_with($requestPath,'/tuition')){$styles[]='tuition.css?v=2';$styles[]='tuition-compact.css?v=1';$styles[]='tuition-form.css?v=1';}
 if(str_starts_with($requestPath,'/insurance')){$styles[]='insurance.css';$styles[]='insurance-fixes.css';}
-if(str_starts_with($requestPath,'/uniform-id')||str_starts_with($requestPath,'/students')||str_starts_with($requestPath,'/teachers')) $styles[]='inventory.css?v=2';
+if(str_starts_with($requestPath,'/uniform-id')||str_starts_with($requestPath,'/students')||str_starts_with($requestPath,'/teachers')) $styles[]='inventory.css?v=4';
 if(str_starts_with($requestPath,'/students')) $styles[]='students.css?v=2';
 if(str_starts_with($requestPath,'/teachers')) $styles[]='teachers.css?v=1';
 if(str_contains($requestPath,'/import')) $styles[]='imports.css';
 $styles[]='sidebar-modern.css?v=2';
-$styles[]='ui-polish.css?v=2';
+$styles[]='ui-polish.css?v=3';
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?=e($title??'School Monitoring System')?></title>
 <?php foreach($styles as $style):?><link rel="stylesheet" href="<?=e(url('/assets/css/'.$style))?>"><?php endforeach;?></head>

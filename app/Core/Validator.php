@@ -36,4 +36,11 @@ final class Validator
         return preg_match('/^\d{11}$/', trim($phone))
             ? [] : [$field => 'Phone number must contain exactly 11 digits.'];
     }
+
+    public static function governmentId(?string $value, string $field, string $label): array
+    {
+        if ($value === null || trim($value) === '') return [];
+        return preg_match('/^[0-9 -]{1,30}$/', trim($value))
+            ? [] : [$field => $label . ' may contain only numbers, spaces, and hyphens (maximum 30 characters).'];
+    }
 }

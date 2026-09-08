@@ -53,7 +53,7 @@ code, th, .eyebrow, .badge, .stat-card strong, .stock-number, .fee-total strong,
 th { position:sticky; top:0; z-index:2; background:#f7f4fb; color:#5d536e; }
 td { vertical-align:middle; }
 tbody tr:nth-child(even) { background:rgba(104,77,157,.018); }
-th.action-column { width:1%; white-space:nowrap; }
+th.action-column { width:1%; min-width:112px; white-space:nowrap; text-align:center; }
 
 .badge { display:inline-flex; align-items:center; gap:.35rem; min-height:24px; padding:.2rem .55rem; font-weight:800; letter-spacing:.015em; }
 .badge::before { content:""; width:6px; height:6px; flex:0 0 6px; border-radius:50%; background:currentColor; opacity:.72; }
@@ -184,6 +184,12 @@ body.app-body :where(th,td) { padding:.47rem .58rem; line-height:1.25; }
 body.app-body th { font-size:.66rem; letter-spacing:.045em; }
 body.app-body td { font-size:.79rem; }
 body.app-body td .button + .button { margin-left:.18rem; }
+body.app-body .record-actions{display:flex!important;flex-flow:row nowrap!important;align-items:center;justify-content:center;gap:.3rem;width:max-content;min-width:100%;white-space:nowrap;vertical-align:middle}
+body.app-body .record-actions form{display:flex!important;flex:0 0 auto;align-items:center;margin:0;padding:0}
+body.app-body .record-actions .button{height:28px;min-height:28px;margin:0;padding:.3rem .5rem;line-height:1}
+body.app-body .record-actions>a.button,body.app-body .record-actions form .button{flex:0 0 auto;width:auto}
+body.app-body .record-actions .danger-button{background:transparent;border-color:rgba(173,69,96,.42);color:#9d3e56;box-shadow:none}
+body.app-body .record-actions .danger-button:hover{background:#ad4560;border-color:#ad4560;color:#fff}
 body.app-body .badge { min-height:19px; gap:.25rem; padding:.12rem .4rem; font-size:.64rem; }
 body.app-body .badge::before { width:5px; height:5px; flex-basis:5px; }
 body.app-body .empty { min-height:56px; padding:1rem; }
